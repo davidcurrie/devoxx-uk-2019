@@ -1,1 +1,46 @@
-# devoxx-uk-2019
+# Devoxx UK 2019 - Knative demo
+
+## Setup
+
+1. Update [docker-secret.yaml](setup/docker-secret.yaml) with Docker Hub credentials.
+1. `kubectl apply -f setup` to create secret with Docker Hub credentials associated with `build-bot` service account.
+1. Install `kaniko` build template `kubectl apply -f https://raw.githubusercontent.com/knative/build-templates/master/kaniko/kaniko.yaml`
+
+## Serving
+
+### Deploy Knative service
+
+1. [helloworld.go](helloworld.go) is a simple Go web server. Note the use of `PORT` passed in by Knative.
+1. It has been built with [Dockerfile](Dockerfile) and pushed to Docker Hub at `dcurrie/helloworld-go:latest`.
+1. [service.yaml](service.yaml) defines a Knative service which specifies the Docker image in its configuration along with an environment variable that is output in the response.
+1. ```kubectl apply -f service.yaml```
+1. ```curl helloworld-go.default.knative.currie.cloud``` should return `Hello Go Sample v1!`.
+
+### Deploy a second revision of the service
+
+1. Change `v1` to `v2` in `service.yaml` and re-apply.
+1. ```curl helloworld-go.default.knative.currie.cloud``` should now return `Hello Go Sample v2!`. A new revision of the service has been created and, because we are using `runLatest` in the service definition, requests are automatically routed to the new revision once it has become available.
+
+### Auto-scaling
+
+Unlike, say, a Function-as-a-Service platform, container instances are expected to handle multiple requests and, by default, handle concurrent requests.
+
+1. By default, the number of pods for a revision scales down to zero. This can be great as it means old revisions to which traffic is no longer being routed don't cost anything. It may not be desirable though if traffic is the container for a service takes time to become ready. Add the annotation `autoscaling.knative.dev/minScale: "2"` and re-apply the `service.yaml`.
+1. `kubectl get pod` should now show two pods for the latest revision.
+1. By default, auto-scaling is triggered based on a target maximum concurrency of 100. We'll lower that target to make triggering a scaling decision easier. Add the annotation `autoscaling.knative.dev/target: "2" and re-apply the `service.yaml`.
+1. We'll use [hey](https://github.com/rakyll/hey) to drivesome load. Run `hey -z 10s -c 100 http://helloworld-go.default.knative.currie.cloud && kubectl get pods`. Although the default averaging window is 60 seconds, when the concurrency breaches double the target then the auto-scaler enters panic mode and starts scaling up the number of instances so you should see additional pods.
+
+
+### Manual blue-green deployment
+
+1. Execute `kubectl get revision` and note the name of the revision for the latest generation.
+1. In `service.yaml`, change `runLatest` to `release` and `v2` to `v3`. Add a `revisions` stanza under `release` which lists the latest revision noted in the previous step.
+1. ```curl helloworld-go.default.knative.currie.cloud``` should still return `Hello Go Sample v2!`.
+1. Execute `kubectl get revision` and note the name of the revision for the third generation.
+1. Add the new revision into `service.yaml` under the existing one. Then add a `rolloutPercentage: 0` under the `revisions` element. Apply the updated YAML.
+1. ```curl helloworld-go.default.knative.currie.cloud``` is still returning `Hello Go Sample v2!`.
+1. Although no default traffic is being routed to the new service revision, it is now tagged `candidate` and is available via ```curl candidate.helloworld-go.default.knative.currie.cloud```.
+1. Increase the rollout percentage to `50` and re-apply.
+1. Run ```curl candidate.helloworld-go.default.knative.currie.cloud``` repeatedly and note that the workload is now balanced across the two revisions.
+1. Remove the `rolloutPercentage` and the old revision and re-apply.
+1. Run ```curl candidate.helloworld-go.default.knative.currie.cloud``` repeatedly and you should now only see the latest version.
