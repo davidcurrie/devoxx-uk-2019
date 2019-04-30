@@ -1,3 +1,5 @@
 **
 
 !/helloworld.go
+# Workaround for https://github.com/GoogleContainerTools/kaniko/issues/595
+!/go/helloworld
