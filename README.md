@@ -30,7 +30,6 @@ Unlike, say, a Function-as-a-Service platform, container instances are expected 
 1. By default, auto-scaling is triggered based on a target maximum concurrency of 100. We'll lower that target to make triggering a scaling decision easier. Add the annotation `autoscaling.knative.dev/target: "2" and re-apply the `service.yaml`.
 1. We'll use [hey](https://github.com/rakyll/hey) to drivesome load. Run `hey -z 10s -c 100 http://helloworld-go.default.knative.currie.cloud && kubectl get pods`. Although the default averaging window is 60 seconds, when the concurrency breaches double the target then the auto-scaler enters panic mode and starts scaling up the number of instances so you should see additional pods.
 
-
 ### Manual blue-green deployment
 
 1. Execute `kubectl get revision` and note the name of the revision for the latest generation.
@@ -44,3 +43,17 @@ Unlike, say, a Function-as-a-Service platform, container instances are expected 
 1. Run ```curl candidate.helloworld-go.default.knative.currie.cloud``` repeatedly and note that the workload is now balanced across the two revisions.
 1. Remove the `rolloutPercentage` and the old revision and re-apply.
 1. Run ```curl candidate.helloworld-go.default.knative.currie.cloud``` repeatedly and you should now only see the latest version.
+
+### Cleanup
+
+1. `kubectl delete -f service.yaml`
+
+## Build
+
+1. Take a look at [service-with-build.yaml](service-with-build.yaml). It adds a `build` configuration that points to the GitHub repo containing this application. It also specifies a service account configured with Docker Hub credentials and a Kaniko build template.
+1. Retrieve the build template with `kubectl get buildtemplate kaniko -o yaml`. Note how it takes the image name as a parameter. This template only contains a single step which specifies the kaniko `executor` image that will build an image and push it to a registry.
+1. Apply the service configuration with `kubectl apply -f service-with-build.yaml`.
+1. Watch the pods with `kubectl get pods -w`.
+1. Note that the build pod contains three init containers. Two are always injected: one to set up credentials (e.g. mounting in the Docker and/or Git credentials) and the second to check out the source from Git. These are followed by a container for each step in the build. They are run as init containers so that execute sequentially.
+1. Once the build has complete, the service will be deployed.
+1. Run `curl helloworld-go.default.knative.currie.cloud`
