@@ -27,10 +27,11 @@
 
 Unlike, say, a Function-as-a-Service platform, container instances are expected to handle multiple requests and, by default, handle concurrent requests.
 
-1. By default, auto-scaling is triggered based on a target maximum concurrency of 100. We'll lower that target to make triggering a scaling decision easier. Add the annotation `autoscaling.knative.dev/target: "1kgp -" and re-apply the `service.yaml`.
-1. We'll use [hey](https://github.com/rakyll/hey) to drive some load. Run `hey -z 10s -c 100 http://helloworld-go.default.knative.currie.cloud && kubectl get pods`. Although the default averaging window is 60 seconds, when the concurrency breaches double the target then the auto-scaler enters panic mode and starts scaling up the number of instances so you should see additional pods.
+
 1. By default, the number of pods for a revision scales down to zero. This can be great as it means old revisions to which traffic is no longer being routed don't cost anything. It may not be desirable though if traffic is the container for a service takes time to become ready. Add the annotation `autoscaling.knative.dev/minScale: "2"` and re-apply the `service.yaml`.
 1. `kubectl get pod` should now show two pods for the latest revision.
+1. By default, auto-scaling is triggered based on a target maximum concurrency of 100. We'll lower that target to make triggering a scaling decision easier. Remove the `minScale` annotation and add the annotation `autoscaling.knative.dev/target: "1"` and re-apply the `service.yaml`.
+1. We'll use [hey](https://github.com/rakyll/hey) to drive some load. Run `hey -z 10s -c 100 http://helloworld-go.default.knative.currie.cloud && kubectl get pods`. Although the default averaging window is 60 seconds, when the concurrency breaches double the target then the auto-scaler enters panic mode and starts scaling up the number of instances so you should see additional pods.
 
 ### Manual blue-green deployment
 
