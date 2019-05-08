@@ -27,10 +27,10 @@
 
 Unlike, say, a Function-as-a-Service platform, container instances are expected to handle multiple requests and, by default, handle concurrent requests.
 
+1. By default, auto-scaling is triggered based on a target maximum concurrency of 100. We'll lower that target to make triggering a scaling decision easier. Add the annotation `autoscaling.knative.dev/target: "1kgp -" and re-apply the `service.yaml`.
+1. We'll use [hey](https://github.com/rakyll/hey) to drive some load. Run `hey -z 10s -c 100 http://helloworld-go.default.knative.currie.cloud && kubectl get pods`. Although the default averaging window is 60 seconds, when the concurrency breaches double the target then the auto-scaler enters panic mode and starts scaling up the number of instances so you should see additional pods.
 1. By default, the number of pods for a revision scales down to zero. This can be great as it means old revisions to which traffic is no longer being routed don't cost anything. It may not be desirable though if traffic is the container for a service takes time to become ready. Add the annotation `autoscaling.knative.dev/minScale: "2"` and re-apply the `service.yaml`.
 1. `kubectl get pod` should now show two pods for the latest revision.
-1. By default, auto-scaling is triggered based on a target maximum concurrency of 100. We'll lower that target to make triggering a scaling decision easier. Add the annotation `autoscaling.knative.dev/target: "2" and re-apply the `service.yaml`.
-1. We'll use [hey](https://github.com/rakyll/hey) to drive some load. Run `hey -z 10s -c 100 http://helloworld-go.default.knative.currie.cloud && kubectl get pods`. Although the default averaging window is 60 seconds, when the concurrency breaches double the target then the auto-scaler enters panic mode and starts scaling up the number of instances so you should see additional pods.
 
 ### Manual blue-green deployment
 
@@ -38,13 +38,13 @@ Unlike, say, a Function-as-a-Service platform, container instances are expected 
 1. In `service.yaml`, change `runLatest` to `release` and `v2` to `v3`. Add a `revisions` stanza under `release` which lists the latest revision noted in the previous step.
 1. `curl helloworld-go.default.knative.currie.cloud` should still return `v2: Hello World!`.
 1. Execute `kubectl get revision` and note the name of the revision for the third generation.
-1. Add the new revision into `service.yaml` under the existing one. Then add a `rolloutPercentage: 0` under the `revisions` element. Apply the updated YAML.
+1. Add the new revision into `service.yaml` under the existing one. Then add a `rolloutPercent: 0` as a sibling of the `revisions` element. Apply the updated YAML.
 1.`curl helloworld-go.default.knative.currie.cloud` is still returning `v2: Hello World!`.
 1. Although no default traffic is being routed to the new service revision, it is now tagged `candidate` and is available via `curl candidate.helloworld-go.default.knative.currie.cloud`.
 1. Increase the rollout percentage to `50` and re-apply.
-1. Run `curl candidate.helloworld-go.default.knative.currie.cloud` repeatedly and note that the workload is now balanced across the two revisions.
-1. Remove the `rolloutPercentage` and the old revision and re-apply.
-1. Run `curl candidate.helloworld-go.default.knative.currie.cloud` repeatedly and you should now only see the latest version.
+1. Run `curl helloworld-go.default.knative.currie.cloud` repeatedly and note that the workload is now balanced across the two revisions.
+1. Remove the `rolloutPercent` and the old revision and re-apply.
+1. Run `curl helloworld-go.default.knative.currie.cloud` repeatedly and you should now only see the latest version.
 
 ### Cleanup
 
@@ -66,3 +66,10 @@ Unlike, say, a Function-as-a-Service platform, container instances are expected 
 1. Create the trigger to subscribe with `kubectl apply -f trigger.yaml`.
 1. Publish a message `gcloud pubsub topics publish devoxx --message "Devoxx"`
 1. Look at the logs for the application and note that it has been driven by the message.
+1. Look at [helloworld.go](helloworld.go) again to see how it handles the event.
+
+### Cleanup
+
+1. `kubectl delete -f service-with-build.yaml`
+1. `kubectl delete -f trigger.yaml`
+1. `kubectl delete -f gcp-pubsub-source.yaml`

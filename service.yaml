@@ -7,6 +7,10 @@ spec:
   runLatest:
     configuration:
       revisionTemplate:
+        metadata:
+          annotations:
+            # autoscaling.knative.dev/target: "1"
+            # autoscaling.knative.dev/minScale: "2"
         spec:
           container:
             image: docker.io/dcurrie/helloworld-go
