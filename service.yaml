@@ -15,5 +15,5 @@ spec:
           container:
             image: docker.io/dcurrie/helloworld-go
             env:
-              - name: TARGET
-                value: "Go Sample v1"
+              - name: VERSION
+                value: "v1"
