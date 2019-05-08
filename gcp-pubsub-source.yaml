@@ -1,0 +1,14 @@
+apiVersion: sources.eventing.knative.dev/v1alpha1
+kind: GcpPubSubSource
+metadata:
+  name: gcp-pubsub-source
+spec:
+  gcpCredsSecret:
+    name: google-cloud-key
+    key: key.json
+  googleCloudProject: cdprocess-dcurrie
+  topic: devoxx
+  sink:
+    apiVersion: eventing.knative.dev/v1alpha1
+    kind: Broker
+    name: default
